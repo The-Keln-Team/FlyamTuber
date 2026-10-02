@@ -130,4 +130,35 @@ public sealed class LevelEngine
         if (ActiveIndex >= Levels.Count) ActiveIndex = Levels.Count - 1;
         AutoSpreadThresholds();
     }
+    /// <summary>Переставляет уровень на новое место в списке.</summary>
+    public void MoveLevel(int from, int to)
+    {
+        if (from == to) return;
+        if (from < 0 || from >= Levels.Count) return;
+        if (to < 0 || to >= Levels.Count) return;
+
+        Levels.Move(from, to);
+        ResetActive();
+    }
+
+    /// <summary>
+    /// Возвращает пороги в порядок: самый тихий сверху. Вызывается после
+    /// перетаскивания — картинки едут куда угодно, лестница громкости остаётся целой.
+    /// </summary>
+    public void NormalizeThresholds()
+    {
+        if (Levels.Count == 0) return;
+
+        var on = Levels.Select(l => l.OnThreshold).OrderBy(v => v).ToArray();
+        var off = Levels.Select(l => l.OffThreshold).OrderBy(v => v).ToArray();
+
+        for (int i = 0; i < Levels.Count; i++)
+        {
+            Levels[i].OnThreshold = on[i];
+            Levels[i].OffThreshold = off[i];
+        }
+
+        Levels[0].OnThreshold = 0;
+        Levels[0].OffThreshold = 0;
+    }
 }

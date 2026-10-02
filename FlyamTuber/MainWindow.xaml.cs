@@ -1170,6 +1170,71 @@ public partial class MainWindow : Window
         FileText.Text = level.FileName;
     }
 
+    // ---------- перетаскивание уровней ----------
+
+    private Point _levelDragStart;
+    private int _levelDragIndex = -1;
+
+    private void LevelsList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _levelDragStart = e.GetPosition(null);
+        _levelDragIndex = IndexOfItemAt(e.GetPosition(LevelsList));
+    }
+
+    private void LevelsList_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _levelDragIndex < 0) return;
+
+        // Не считаем перетаскиванием случайное дрожание руки при клике.
+        Vector moved = e.GetPosition(null) - _levelDragStart;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+
+        DragDrop.DoDragDrop(LevelsList, _levelDragIndex, DragDropEffects.Move);
+    }
+
+    private void LevelsList_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = DragDropEffects.Move;
+        e.Handled = true;
+
+        if (_levelDragIndex < 0) return;
+
+        int target = IndexOfItemAt(e.GetPosition(LevelsList));
+        if (target < 0 || target == _levelDragIndex) return;
+
+        // Двигаем сразу, а не по отпусканию: список перестраивается на глазах,
+        // поэтому видно, куда уровень встанет, без всяких полосок-указателей.
+        _engine.MoveLevel(_levelDragIndex, target);
+        _levelDragIndex = target;
+        LevelsList.SelectedIndex = target;
+        _shownIndex = -2;
+    }
+
+    private void LevelsList_Drop(object sender, DragEventArgs e)
+    {
+        if (_levelDragIndex < 0) return;
+        _levelDragIndex = -1;
+
+        _engine.NormalizeThresholds();
+        LevelsList.Items.Refresh();
+        ShowSelectedLevel();
+        UpdateOverlaySources();
+        SaveSoon();
+    }
+
+    /// <summary>Под какой строкой списка сейчас курсор. -1 — мимо строк.</summary>
+    private int IndexOfItemAt(Point point)
+    {
+        var hit = LevelsList.InputHitTest(point) as DependencyObject;
+        while (hit != null && hit is not ListBoxItem)
+            hit = VisualTreeHelper.GetParent(hit);
+
+        return hit is ListBoxItem item
+            ? LevelsList.ItemContainerGenerator.IndexFromContainer(item)
+            : -1;
+    }
+
     private void LevelField_LostFocus(object sender, RoutedEventArgs e)
     {
         if (LevelsList.SelectedItem is not SpriteLevel level) return;
